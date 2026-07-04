@@ -1,5 +1,5 @@
-#ifndef OPENARPG_INPUT_H
-#define OPENARPG_INPUT_H
+#ifndef OPENARPG_INPUT_STATE_H
+#define OPENARPG_INPUT_STATE_H
 
 // What the simulation reads each tick. The platform layer translates raw
 // raylib input into this once per render frame, so keybindings live in one

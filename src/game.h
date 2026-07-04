@@ -5,7 +5,7 @@
 
 #include "ecs.h"
 #include "events.h"
-#include "input.h"
+#include "input_state.h"
 
 // The simulation, one fixed tick at a time. The platform layer (openarpg.c)
 // owns the accumulator and decides how many ticks to run per render frame;
