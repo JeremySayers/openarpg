@@ -35,25 +35,41 @@ feel pointless.
      (D2-style tight ranges, not PoE-wide ones) — doesn't touch the affix
      pool at all.
 
-4. **Magic vs. Rare draw from the same affix pool, but the top tier of every
-   affix is Magic-exclusive.** Confirmed real D2 precedent: `+1`/`+2` to a
-   skill can roll on either Magic or Rare, `+3` only on Magic. We're taking
-   that as the universal rule for every affix, not a per-affix inconsistency
-   — a Rare can always reach one tier below an affix's max, full stop. This
-   keeps the system legible (no wondering whether *this specific* Rare stat
-   secretly had a locked ceiling — the rule is always the same) while
-   preserving the real tradeoff: pick Magic for a shot at a stat's true
-   ceiling, at the cost of total affix count.
+4. **Magic and Rare each get their own independently-authored mod tables —
+   not a shared ladder.** Every mod is defined per rarity (and, where the
+   value range warrants it, per item-type class — e.g. Boots/Gloves/Helmets
+   share one Life table, Body Armour gets its own higher-value table), each
+   with its own tier count, value ranges, and level requirement. Example:
 
-5. **Tiers are defined per-affix, not as one global item tier.** Each affix
-   gets however many tiers its practical value range calls for — e.g. Life
-   probably wants ~10 tiers for the stat to feel meaningfully different
-   across the whole leveling curve, while Attributes might only need ~4.
-   There is no single "item tier" badge; an item's tooltip shows each rolled
-   affix at its own tier independently. (This is also what resolves an
-   earlier idea of separate numbered M-tier/R-tier tracks — once tiers are
-   per-affix instead of per-item, there's nothing to reconcile across
-   rarities.)
+   ```
+   Magic Boots/Gloves/Helmets — Life      Rare Boots/Gloves/Helmets — Life
+   M1: +80–89                             R1: +70–79
+   M2: +70–79                             R2: +60–69
+
+   Magic Body Armour — Life               Rare Body Armour — Life
+   M1: +140–150                           R1: +135–145
+   M2: +130–139                           R2: +125–134
+   ```
+
+   There's nothing to reconcile across a Magic tier and a Rare tier — they're
+   two separately-scaled tables, so "did my Rare hit the true ceiling for
+   this stat" is never ambiguous (R1 *is* the ceiling for Rare, full stop).
+   Whether Magic ends up ahead of Rare for a given mod (like the example
+   above), roughly even, or behind is a per-mod authoring choice, not a
+   global rule — same for whether a mod even has a Rare-table entry at all;
+   some mods (the D2 `+skills`-style exotic ones) can be Magic-table-only
+   with no Rare equivalent whatsoever. Independent level requirements per
+   table are the other payoff: a well-rolled Magic item can be
+   best-in-slot at a level where Rare's equivalent tier hasn't unlocked yet,
+   giving Magic a real niche beyond "early filler you replace the moment a
+   Rare drops."
+
+5. **Tiers are defined per mod table, not as one global item tier.** Each
+   table gets however many tiers its practical value range calls for — e.g.
+   Life probably wants ~10 tiers per table for the stat to feel meaningfully
+   different across the whole leveling curve, while Attributes might only
+   need ~4. There is no single "item tier" badge; an item's tooltip shows
+   each rolled mod at its own tier, from its own table, independently.
 
 6. **Sockets are a base-item property**, rolled/fixed by item type + item
    level — not an affix. **Gems are contextual modifiers**: a gem's effect
@@ -113,26 +129,29 @@ feel pointless.
      among the donor affixes that satisfied its required tags (weakest-link,
      not average) — rewards uniformly high-tier donors over padding count
      with low-tier ones.
-   - **Bonus pass-through:** if a donor happens to carry one of the
-     Magic-exclusive top-tier affixes (see decision 4 and decision 9), that
-     exact affix instance — value and tier as-is, no rescaling — carries
-     through onto the finished Crafted item as a bonus on top of the
+   - **Bonus pass-through:** if a donor happens to carry a mod rolled from its
+     item's *Magic* table (see decision 9 for how that can end up on a Rare),
+     that exact mod instance — table, value, and tier as-is, no rescaling —
+     carries through onto the finished Crafted item as a bonus on top of the
      recipe's guaranteed effect. This applies uniformly to any recipe, no
      recipe needs to be specially authored to support it. This is the
      intended endgame chase loop: get the (boss-gated, see decision 9)
      Magic→Rare upgrade currency, gamble it into a Rare that both matches a
-     good recipe's tags *and* rolled a strong Magic-exclusive affix, then
-     feed it in for a strictly-better version of that Crafted item.
+     good recipe's tags *and* kept a strong Magic-table mod, then feed it in
+     for a strictly-better version of that Crafted item.
 
-9. **The Magic→Rare upgrade currency can produce a Rare carrying a
-   Magic-exclusive top-tier affix** — something that could never happen from
-   a natural Rare drop. This is an intentional "shouldn't exist" chase item,
-   as long as that upgrade currency stays very rare (boss-gated is the
-   working assumption). Implementation note: the item data model must not
-   hard-assume "Rare implies no Magic-exclusive-tier affixes" as a structural
-   invariant — that assumption only holds at natural roll time. Each affix
-   instance just needs to record its own tier; nothing downstream should
-   special-case rarity vs. tier eligibility.
+9. **The Magic→Rare upgrade currency can produce a Rare carrying a mod rolled
+   from the item's *Magic* table** — something that could never happen from
+   a natural Rare drop, since Rares only ever roll from their own Rare
+   tables. The upgrade keeps whichever Magic-table mod the item already had
+   and rolls the remaining slots from the item's Rare tables as normal. This
+   is an intentional "shouldn't exist" chase item, as long as that upgrade
+   currency stays very rare (boss-gated is the working assumption).
+   Implementation note: the item data model must not hard-assume "a Rare's
+   mods all come from that item's Rare tables" as a structural invariant —
+   each mod instance just needs to record which table (and tier within it)
+   it came from; nothing downstream should special-case rarity vs. table
+   origin.
 
 ## Open questions / deferred
 
@@ -142,10 +161,9 @@ Roughly in the order they'll probably come up:
   settled first — elemental types, resistances, mitigation math).
 - Exact per-affix tier counts and the item-level breakpoints that gate them.
 - A real name for the Crafted-item system (currently just "Crafted").
-- Whether to layer in a small, purely-exclusive utility-affix pool on top of
-  the top-tier-lock rule (D2's "of the Whale" style effects that aren't a
-  tier of any shared stat at all) — not required for the tradeoff to work,
-  but could still be worth it for flavor.
+- Which specific mods get a Rare-table equivalent at all vs. which stay
+  Magic-table-only exotics (D2's "of the Whale" style effects) — a per-mod
+  authoring call, not a rule to settle up front.
 - Full item slot list and base-item catalog.
 - Concrete recipe list for the Crafted bench.
 - Skills: how they're granted/upgraded, resource system (mana or otherwise).
