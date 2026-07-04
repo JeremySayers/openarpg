@@ -39,3 +39,5 @@ There's no formal contributing guide yet — the project is too young for one to
 ## License
 
 Licensed under the [MIT License](LICENSE). Built with [raylib](https://www.raylib.com).
+
+<!-- CI verification: this comment confirms non-build PRs skip the build steps but still report a fast passing check, per issue #3. -->
