@@ -5,18 +5,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_linux.yml'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_linux.yml'
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   build_linux:
@@ -25,19 +18,47 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check for build-relevant changes
+      uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          build:
+            - 'src/**'
+            - 'CMakeLists.txt'
+            - '.github/workflows/build_linux.yml'
 
     - name: Install dependencies
+      if: steps.filter.outputs.build == 'true'
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends libglfw3 libglfw3-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libxkbcommon-dev
 
+    - name: Extract pinned raylib commit
+      if: steps.filter.outputs.build == 'true'
+      id: raylib
+      run: echo "sha=$(grep -oE '[0-9a-f]{40}' CMakeLists.txt)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache raylib build
+      if: steps.filter.outputs.build == 'true'
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: raylib-linux-${{ steps.raylib.outputs.sha }}
+
     - name: Configure
+      if: steps.filter.outputs.build == 'true'
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
+      if: steps.filter.outputs.build == 'true'
       run: cmake --build build --config Release
 
     - name: Package artifact
+      if: steps.filter.outputs.build == 'true'
       run: |
         mkdir -p artifact
         cp build/openarpg/openarpg artifact/
@@ -45,6 +66,7 @@ jobs:
         cp README.md LICENSE artifact/
 
     - name: Upload artifact
+      if: steps.filter.outputs.build == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: openarpg-linux-x64

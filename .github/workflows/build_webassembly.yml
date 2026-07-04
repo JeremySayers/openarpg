@@ -5,18 +5,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_webassembly.yml'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_webassembly.yml'
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   build_web:
@@ -25,17 +18,47 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check for build-relevant changes
+      uses: dorny/paths-filter@v4
+      id: filter
+      with:
+        filters: |
+          build:
+            - 'src/**'
+            - 'CMakeLists.txt'
+            - '.github/workflows/build_webassembly.yml'
+
+    - name: Extract pinned raylib commit
+      if: steps.filter.outputs.build == 'true'
+      id: raylib
+      run: echo "sha=$(grep -oE '[0-9a-f]{40}' CMakeLists.txt)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache raylib build
+      if: steps.filter.outputs.build == 'true'
+      uses: actions/cache@v4
+      with:
+        path: build-web/_deps
+        key: raylib-web-${{ steps.raylib.outputs.sha }}
 
     - name: Setup emsdk
+      if: steps.filter.outputs.build == 'true'
       uses: mymindstorm/setup-emsdk@v14
+      with:
+        actions-cache-folder: 'emsdk-cache'
 
     - name: Configure
+      if: steps.filter.outputs.build == 'true'
       run: emcmake cmake -B build-web -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
+      if: steps.filter.outputs.build == 'true'
       run: cmake --build build-web --config Release
 
     - name: Package artifact
+      if: steps.filter.outputs.build == 'true'
       run: |
         mkdir -p artifact
         cp build-web/openarpg/openarpg.html artifact/index.html
@@ -44,6 +67,7 @@ jobs:
         if [ -f build-web/openarpg/openarpg.data ]; then cp build-web/openarpg/openarpg.data artifact/; fi
 
     - name: Upload artifact
+      if: steps.filter.outputs.build == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: openarpg-web
