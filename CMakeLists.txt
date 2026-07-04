@@ -21,6 +21,12 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raylib)
 
+# Warning flags shared by all of our own targets (not raylib's build).
+add_library(openarpg_build_flags INTERFACE)
+target_compile_options(openarpg_build_flags INTERFACE
+    $<$<C_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall>)
+
 # Our Project
 add_executable(${PROJECT_NAME})
 add_subdirectory(src)
@@ -32,10 +38,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 
-# -Wall (MSVC: /W4) applies only to our own code, not to raylib's build.
-target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<C_COMPILER_ID:MSVC>:/W4>
-    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall>)
+target_link_libraries(${PROJECT_NAME} openarpg_build_flags)
+
+# Headless tests for the simulation code; no raylib, so no Web build.
+if (NOT "${PLATFORM}" STREQUAL "Web")
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 if ("${PLATFORM}" STREQUAL "Web")
     add_custom_command(

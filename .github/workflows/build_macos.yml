@@ -28,6 +28,7 @@ jobs:
         filters: |
           build:
             - 'src/**'
+            - 'tests/**'
             - 'CMakeLists.txt'
             - '.github/workflows/build_macos.yml'
 
@@ -50,6 +51,10 @@ jobs:
     - name: Build
       if: steps.filter.outputs.build == 'true'
       run: cmake --build build --config Release
+
+    - name: Test
+      if: steps.filter.outputs.build == 'true'
+      run: ctest --test-dir build --output-on-failure
 
     - name: Package artifact
       if: steps.filter.outputs.build == 'true'
