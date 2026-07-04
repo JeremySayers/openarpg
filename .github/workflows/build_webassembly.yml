@@ -5,18 +5,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_webassembly.yml'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/build_webassembly.yml'
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   build_web:
@@ -24,18 +17,48 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      with:
+        fetch-depth: 0
+
+    - name: Check for build-relevant changes
+      uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      id: filter
+      with:
+        filters: |
+          build:
+            - 'src/**'
+            - 'CMakeLists.txt'
+            - '.github/workflows/build_webassembly.yml'
+
+    - name: Extract pinned raylib commit
+      if: steps.filter.outputs.build == 'true'
+      id: raylib
+      run: echo "sha=$(grep -oE '[0-9a-f]{40}' CMakeLists.txt)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache raylib build
+      if: steps.filter.outputs.build == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: build-web/_deps
+        key: raylib-web-${{ steps.raylib.outputs.sha }}
 
     - name: Setup emsdk
-      uses: mymindstorm/setup-emsdk@v14
+      if: steps.filter.outputs.build == 'true'
+      uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+      with:
+        actions-cache-folder: 'emsdk-cache'
 
     - name: Configure
+      if: steps.filter.outputs.build == 'true'
       run: emcmake cmake -B build-web -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
+      if: steps.filter.outputs.build == 'true'
       run: cmake --build build-web --config Release
 
     - name: Package artifact
+      if: steps.filter.outputs.build == 'true'
       run: |
         mkdir -p artifact
         cp build-web/openarpg/openarpg.html artifact/index.html
@@ -44,7 +67,8 @@ jobs:
         if [ -f build-web/openarpg/openarpg.data ]; then cp build-web/openarpg/openarpg.data artifact/; fi
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      if: steps.filter.outputs.build == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: openarpg-web
         path: artifact/
