@@ -12,9 +12,24 @@ Build/run commands live in [README.md](README.md#building).
 
 ## Workflow
 
-`main` is protected: every change lands via a pull request, and the four CI build workflows must pass before merging. There's no required-review count yet (no regular outside contributors), so a PR can be self-merged once CI is green.
+`main` is protected: every change lands via a pull request, and the four CI build workflows (`build_linux`, `build_macos`, `build_windows`, `build_web`) must pass before merging. There's no required-review count yet (no regular outside contributors), so a PR can be self-merged once CI is green.
 
 This applies to AI-driven changes too — always work on a branch and open a PR, never push directly to `main`, even though the repo owner has admin bypass available for their own emergency use.
+
+Concrete steps, using the `gh` CLI:
+
+```sh
+git checkout -b <branch-name>
+# ...make changes, then...
+git add <files>
+git commit -m "..."
+git push -u origin <branch-name>          # first push on a new branch
+gh pr create --title "..." --body "..."   # opens the PR, prints its URL/number
+gh pr checks <number>                     # poll until all four checks show "pass"
+gh pr merge <number>                      # once green; ask which merge strategy if unspecified
+```
+
+If a branch already has an upstream (i.e. this isn't the first push), plain `git push` is enough — `-u` is only needed once.
 
 ## Coding Conventions
 
