@@ -30,6 +30,12 @@ gh pr merge <number>                      # once CI is green; ask which merge st
 
 If a branch already has an upstream (i.e. this isn't the first push), plain `git push` is enough — `-u` is only needed once.
 
+## Pinning Dependencies
+
+External dependencies — GitHub Actions in `.github/workflows/*.yml`, and third-party libraries fetched via CMake's `FetchContent` (raylib, etc.) — are pinned to an immutable full commit SHA, not a moving tag or branch (`@v4`, `@main`, a version string without a hash). A tag can be silently repointed to different content upstream; a commit SHA can't. Pin actions like `uses: owner/repo@<40-char-sha> # vX.Y.Z` — the trailing comment records the human-readable version for anyone reading the workflow.
+
+This isn't about staying on the latest version — it's fine for a pin to sit unbumped for a long time. Bump it deliberately when there's a reason to (a needed fix/feature, or a security advisory), not automatically.
+
 ## Coding Conventions
 
 Convention | Style | Example
