@@ -19,6 +19,12 @@ Run it:
 
 For a debug build, use `-DCMAKE_BUILD_TYPE=Debug`. On macOS, pass `-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"` to produce a universal binary.
 
+The headless tests for the simulation code build alongside the game (desktop builds only). Run them with:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
 For a web build (requires an activated [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)):
 
 ```sh

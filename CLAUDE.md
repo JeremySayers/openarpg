@@ -8,7 +8,7 @@ The project is brand new. `src/openarpg.c` is currently just a minimal window th
 
 Build/run commands live in [README.md](README.md#building).
 
-`.github/workflows/build_{linux,macos,windows,webassembly}.yml` build all four targets on every push that touches `src/**` or `CMakeLists.txt`, and upload the result as a workflow artifact. There's no release/publish automation yet — add it once there's a build worth shipping.
+`.github/workflows/build_{linux,macos,windows,webassembly}.yml` build all four targets on every push that touches `src/**`, `tests/**`, or `CMakeLists.txt`, and upload the result as a workflow artifact. The three desktop workflows also run the headless test suite (`ctest --test-dir build`). There's no release/publish automation yet — add it once there's a build worth shipping.
 
 ## Workflow
 
