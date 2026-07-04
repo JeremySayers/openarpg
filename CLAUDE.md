@@ -25,8 +25,7 @@ git add <files>
 git commit -m "..."
 git push -u origin <branch-name>          # first push on a new branch
 gh pr create --title "..." --body "..."   # opens the PR, prints its URL/number
-gh pr checks <number>                     # poll until all four checks show "pass"
-gh pr merge <number>                      # once green; ask which merge strategy if unspecified
+gh pr merge <number>                      # once CI is green; ask which merge strategy if unspecified
 ```
 
 If a branch already has an upstream (i.e. this isn't the first push), plain `git push` is enough — `-u` is only needed once.
