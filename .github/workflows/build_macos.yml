@@ -1,0 +1,46 @@
+name: Build Project - macOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build_macos.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build_macos.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build_macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Package artifact
+      run: |
+        mkdir -p artifact
+        cp build/openarpg/openarpg artifact/
+        cp -r build/openarpg/resources artifact/resources
+        cp README.md LICENSE artifact/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openarpg-macos
+        path: artifact/

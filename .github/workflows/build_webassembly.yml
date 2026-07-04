@@ -1,0 +1,50 @@
+name: Build Project - WebAssembly
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build_webassembly.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build_webassembly.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build_web:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup emsdk
+      uses: mymindstorm/setup-emsdk@v14
+
+    - name: Configure
+      run: emcmake cmake -B build-web -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build-web --config Release
+
+    - name: Package artifact
+      run: |
+        mkdir -p artifact
+        cp build-web/openarpg/openarpg.html artifact/index.html
+        cp build-web/openarpg/openarpg.js artifact/
+        cp build-web/openarpg/openarpg.wasm artifact/
+        if [ -f build-web/openarpg/openarpg.data ]; then cp build-web/openarpg/openarpg.data artifact/; fi
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openarpg-web
+        path: artifact/
