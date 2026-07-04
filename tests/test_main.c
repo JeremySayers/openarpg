@@ -2,6 +2,7 @@
 // Plain assert-macro runner: every CHECK failure prints and counts, the
 // process exits nonzero if any failed. No framework on purpose.
 
+#include <math.h>
 #include <stdio.h>
 
 #include "ecs.h"
@@ -271,6 +272,7 @@ static void test_event_overflow_drops(void)
 // --- Game tick ---------------------------------------------------------
 
 static game_t game;
+static const input_state_t no_input;
 
 static void test_game_tick_sweeps(void)
 {
@@ -280,10 +282,73 @@ static void test_game_tick_sweeps(void)
     entity_destroy(&game.world, e);
     CHECK(entity_valid(&game.world, e));
 
-    game_tick(&game);
+    game_tick(&game, &no_input);
 
     CHECK(!entity_valid(&game.world, e));
     CHECK(game.tick_count == 1);
+}
+
+// --- Player movement ---------------------------------------------------
+
+#define CHECK_NEAR(a, b) CHECK(fabsf((a) - (b)) < 0.001f)
+
+static void test_player_spawns(void)
+{
+    game_init(&game);
+
+    CHECK(entity_alive(&game.world, game.player));
+    CHECK(entity_has(&game.world, game.player, COMP_POSITION | COMP_VELOCITY));
+    CHECK_NEAR(game.world.positions[game.player.index].x, 0.0f);
+    CHECK_NEAR(game.world.positions[game.player.index].y, 0.0f);
+}
+
+static void test_player_moves_and_stops(void)
+{
+    game_init(&game);
+
+    input_state_t input = { 0 };
+    input.move_x = 1.0f;
+    for (int i = 0; i < 60; i++)
+    {
+        game_tick(&game, &input);
+    }
+
+    // One second of ticks at full speed covers PLAYER_MOVE_SPEED units.
+    CHECK_NEAR(game.world.positions[game.player.index].x, PLAYER_MOVE_SPEED);
+    CHECK_NEAR(game.world.positions[game.player.index].y, 0.0f);
+
+    game_tick(&game, &no_input);
+    float stopped_x = game.world.positions[game.player.index].x;
+    game_tick(&game, &no_input);
+    CHECK_NEAR(game.world.positions[game.player.index].x, stopped_x);
+    CHECK_NEAR(game.world.velocities[game.player.index].x, 0.0f);
+}
+
+static void test_player_diagonal_not_faster(void)
+{
+    game_init(&game);
+
+    input_state_t input = { 0 };
+    input.move_x = 1.0f;
+    input.move_y = 1.0f;
+    game_tick(&game, &input);
+
+    velocity_t v = game.world.velocities[game.player.index];
+    float speed = sqrtf(v.x * v.x + v.y * v.y);
+    CHECK_NEAR(speed, PLAYER_MOVE_SPEED);
+}
+
+static void test_aim_is_stored(void)
+{
+    game_init(&game);
+
+    input_state_t input = { 0 };
+    input.aim_x = 123.0f;
+    input.aim_y = -456.0f;
+    game_tick(&game, &input);
+
+    CHECK_NEAR(game.aim_x, 123.0f);
+    CHECK_NEAR(game.aim_y, -456.0f);
 }
 
 int main(void)
@@ -298,6 +363,10 @@ int main(void)
     test_event_runaway_guard();
     test_event_overflow_drops();
     test_game_tick_sweeps();
+    test_player_spawns();
+    test_player_moves_and_stops();
+    test_player_diagonal_not_faster();
+    test_aim_is_stored();
 
     printf("%d checks, %d failed\n", checks_run, checks_failed);
     return checks_failed == 0 ? 0 : 1;
