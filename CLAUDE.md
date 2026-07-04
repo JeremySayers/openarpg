@@ -63,6 +63,8 @@ The rule is "no allocation in the hot per-frame path," not "no malloc anywhere."
 
 The plan is a small, self-rolled ECS plus an event system, specifically to keep gameplay chains (ability hits enemy → damage applied → on-hit effects trigger → enemy dies → loot rolls → player gets exp) decoupled instead of one system reaching directly into the next.
 
+The sketch below has since been refined into concrete decisions (entity handles, event semantics, timestep, etc.) and a phased implementation plan — see [ROADMAP.md](ROADMAP.md), which wins wherever the two disagree.
+
 Rough shape, to be refined in conversation as it's actually built:
 
 - **Entities** are plain integer IDs indexing into fixed-size component arrays. No sparse sets or archetypes yet — start simple, add that complexity only if profiling says so.
