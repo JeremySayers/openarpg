@@ -8,6 +8,7 @@ static const float player_radius = 16.0f;
 static Camera2D camera;
 
 static void draw_grid(void);
+static void draw_entities(const game_t *game);
 
 void render_init(void)
 {
@@ -37,6 +38,7 @@ void render_frame(const game_t *game)
         BeginMode2D(camera);
 
             draw_grid();
+            draw_entities(game);
 
             position_t player_pos = game->world.positions[game->player.index];
             Vector2 player = { player_pos.x, player_pos.y };
@@ -55,7 +57,7 @@ void render_frame(const game_t *game)
 
         EndMode2D();
 
-        DrawText("WASD to move, mouse to aim", 10, 10, 20, GRAY);
+        DrawText("WASD to move, mouse to aim, hold LMB to fire", 10, 10, 20, GRAY);
 
     EndDrawing();
 }
@@ -83,4 +85,44 @@ static void draw_grid(void)
 
     // Mark the world origin so there's a fixed landmark.
     DrawCircleV((Vector2){ 0.0f, 0.0f }, 6.0f, SKYBLUE);
+}
+
+static void draw_entities(const game_t *game)
+{
+    const world_t *world = &game->world;
+
+    for (int i = 0; i < MAX_ENTITIES; i++)
+    {
+        uint32_t mask = world->masks[i];
+        if ((mask & COMP_ALIVE) == 0 || (mask & COMP_POSITION) == 0)
+        {
+            continue;
+        }
+        Vector2 pos = { world->positions[i].x, world->positions[i].y };
+
+        if (mask & COMP_CORPSE)
+        {
+            float fade = (float)world->lifetimes[i].remaining /
+                         (float)world->lifetimes[i].total;
+            DrawCircleV(pos, 14.0f, Fade(GRAY, fade));
+        }
+        else if (mask & COMP_ENEMY)
+        {
+            float radius = world->colliders[i].radius;
+            DrawCircleV(pos, radius, RED);
+
+            const health_t *health = &world->healths[i];
+            if (health->current < health->max)
+            {
+                float fill = (float)health->current / (float)health->max;
+                Vector2 bar = { pos.x - radius, pos.y - radius - 8.0f };
+                DrawRectangleV(bar, (Vector2){ radius * 2.0f, 4.0f }, DARKGRAY);
+                DrawRectangleV(bar, (Vector2){ radius * 2.0f * fill, 4.0f }, GREEN);
+            }
+        }
+        else if (mask & COMP_PROJECTILE)
+        {
+            DrawCircleV(pos, world->colliders[i].radius, DARKGRAY);
+        }
+    }
 }

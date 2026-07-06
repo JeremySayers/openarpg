@@ -32,7 +32,12 @@ typedef struct
     float         aim_y;
 } game_t;
 
+// Spawns just the player; content is spawned separately so tests can set
+// up exactly the world they want.
 void game_init(game_t *game);
+
+// The demo encounter: a ring of enemies around the origin.
+void game_spawn_wave(game_t *game);
 
 // One simulation tick:
 //   gameplay systems (push events) -> event dispatch -> cleanup sweep

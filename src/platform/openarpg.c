@@ -23,6 +23,7 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "OpenARPG");
 
     game_init(&game);
+    game_spawn_wave(&game);
     render_init();
 
 #if defined(PLATFORM_WEB)

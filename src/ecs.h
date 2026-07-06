@@ -26,10 +26,17 @@ typedef struct
 // their required mask so they skip dying entities. Mask 0 = empty slot.
 typedef enum
 {
-    COMP_ALIVE    = 1u << 0,
-    COMP_DYING    = 1u << 1,
-    COMP_POSITION = 1u << 2,
-    COMP_VELOCITY = 1u << 3,
+    COMP_ALIVE      = 1u << 0,
+    COMP_DYING      = 1u << 1,
+    COMP_POSITION   = 1u << 2,
+    COMP_VELOCITY   = 1u << 3,
+    COMP_HEALTH     = 1u << 4,
+    COMP_COLLIDER   = 1u << 5,
+    COMP_PROJECTILE = 1u << 6,
+    COMP_LIFETIME   = 1u << 7,
+    COMP_CASTER     = 1u << 8,
+    COMP_ENEMY      = 1u << 9,
+    COMP_CORPSE     = 1u << 10, // tag only, no data array
 } component_flag_t;
 
 typedef struct
@@ -46,11 +53,52 @@ typedef struct
 
 typedef struct
 {
+    int current;
+    int max;
+} health_t;
+
+typedef struct
+{
+    float radius;
+} collider_t;
+
+typedef struct
+{
+    entity_t source;    // credited with any damage this projectile deals
+    int      def_index; // into abilities.c's projectile_defs
+} projectile_t;
+
+// Counts down each tick; at zero the entity is destroyed. total is kept so
+// rendering can fade things out proportionally.
+typedef struct
+{
+    int remaining;
+    int total;
+} lifetime_t;
+
+typedef struct
+{
+    int cooldown_ticks;
+} caster_t;
+
+typedef struct
+{
+    int def_index; // into enemy.c's enemy_defs
+} enemy_t;
+
+typedef struct
+{
     uint32_t   masks[MAX_ENTITIES];
     uint16_t   generations[MAX_ENTITIES];
 
-    position_t positions[MAX_ENTITIES];
-    velocity_t velocities[MAX_ENTITIES];
+    position_t   positions[MAX_ENTITIES];
+    velocity_t   velocities[MAX_ENTITIES];
+    health_t     healths[MAX_ENTITIES];
+    collider_t   colliders[MAX_ENTITIES];
+    projectile_t projectiles[MAX_ENTITIES];
+    lifetime_t   lifetimes[MAX_ENTITIES];
+    caster_t     casters[MAX_ENTITIES];
+    enemy_t      enemies[MAX_ENTITIES];
 
     uint16_t   free_indices[MAX_ENTITIES];
     int        free_count;

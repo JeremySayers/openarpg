@@ -5,7 +5,10 @@
 #include <math.h>
 #include <stdio.h>
 
+#include "abilities.h"
+#include "combat.h"
 #include "ecs.h"
+#include "enemy.h"
 #include "events.h"
 #include "game.h"
 
@@ -351,6 +354,181 @@ static void test_aim_is_stored(void)
     CHECK_NEAR(game.aim_y, -456.0f);
 }
 
+// --- Combat --------------------------------------------------------------
+
+static int count_with(const world_t *world, uint32_t components)
+{
+    uint32_t needed = COMP_ALIVE | components;
+    int count = 0;
+    for (int i = 0; i < MAX_ENTITIES; i++)
+    {
+        if ((world->masks[i] & needed) == needed)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+static void test_projectile_damages_enemy(void)
+{
+    game_init(&game);
+    entity_t enemy = enemy_spawn(&game.world, ENEMY_WALKER, 200.0f, 0.0f);
+
+    // Aim at the enemy and hold attack. Basic shot covers the gap well
+    // within its lifetime; the enemy also walks toward the player.
+    input_state_t input = { 0 };
+    input.aim_x = 200.0f;
+    input.attack = true;
+
+    int start_health = game.world.healths[enemy.index].current;
+    int ticks = 0;
+    while (game.world.healths[enemy.index].current == start_health && ticks < 30)
+    {
+        game_tick(&game, &input);
+        ticks++;
+    }
+
+    CHECK(ticks < 30);
+    CHECK(game.world.healths[enemy.index].current ==
+          start_health - projectile_def(PROJ_BASIC_SHOT)->damage);
+}
+
+static void test_enemy_dies_and_leaves_corpse(void)
+{
+    game_init(&game);
+    entity_t enemy = enemy_spawn(&game.world, ENEMY_WALKER, 200.0f, 0.0f);
+
+    input_state_t input = { 0 };
+    input.aim_x = 200.0f;
+    input.attack = true;
+
+    int ticks = 0;
+    while (entity_valid(&game.world, enemy) && ticks < 300)
+    {
+        game_tick(&game, &input);
+        ticks++;
+    }
+
+    CHECK(!entity_valid(&game.world, enemy));
+    CHECK(count_with(&game.world, COMP_CORPSE) == 1);
+    CHECK(count_with(&game.world, COMP_ENEMY) == 0);
+
+    input.attack = false;
+    for (int i = 0; i <= CORPSE_LIFETIME_TICKS; i++)
+    {
+        game_tick(&game, &input);
+    }
+    CHECK(count_with(&game.world, COMP_CORPSE) == 0);
+}
+
+static void test_fire_rate_is_cooldown_gated(void)
+{
+    game_init(&game);
+
+    // Fire into empty space; nothing expires within the window observed.
+    input_state_t input = { 0 };
+    input.aim_x = 10000.0f;
+    input.attack = true;
+
+    for (int i = 0; i < 50; i++)
+    {
+        game_tick(&game, &input);
+    }
+
+    // Casts land on the cooldown boundary: ticks 1, 16, 31, 46.
+    int cooldown = ability_def(ABILITY_BASIC_SHOT)->cooldown_ticks;
+    CHECK(cooldown == 15);
+    CHECK(count_with(&game.world, COMP_PROJECTILE) == 4);
+}
+
+static void test_missed_projectile_expires_harmlessly(void)
+{
+    game_init(&game);
+    entity_t enemy = enemy_spawn(&game.world, ENEMY_WALKER, 300.0f, 0.0f);
+
+    // One shot aimed away from the enemy.
+    input_state_t input = { 0 };
+    input.aim_y = -300.0f;
+    input.attack = true;
+    game_tick(&game, &input);
+    input.attack = false;
+
+    for (int i = 0; i < projectile_def(PROJ_BASIC_SHOT)->lifetime_ticks + 1; i++)
+    {
+        game_tick(&game, &input);
+    }
+
+    CHECK(count_with(&game.world, COMP_PROJECTILE) == 0);
+    CHECK(game.world.healths[enemy.index].current ==
+          enemy_def(ENEMY_WALKER)->max_health);
+}
+
+static void test_projectile_explodes_into_children(void)
+{
+    game_init(&game);
+
+    // Cast the burst shell into empty space and let it expire.
+    ability_cast(&game.world, game.player, ABILITY_BURST_SHOT, 100.0f, 0.0f);
+    CHECK(count_with(&game.world, COMP_PROJECTILE) == 1);
+
+    int shell_lifetime = projectile_def(PROJ_BURST_SHELL)->lifetime_ticks;
+    for (int i = 0; i < shell_lifetime; i++)
+    {
+        game_tick(&game, &no_input);
+    }
+
+    // The shell died this tick and its children spawned in the same tick's
+    // dispatch phase.
+    int children = projectile_def(PROJ_BURST_SHELL)->on_death_count;
+    CHECK(count_with(&game.world, COMP_PROJECTILE) == children);
+
+    // The radial pattern spreads them in every direction.
+    for (int i = 0; i < 5; i++)
+    {
+        game_tick(&game, &no_input);
+    }
+    float min_x = 1e9f, max_x = -1e9f, min_y = 1e9f, max_y = -1e9f;
+    for (int i = 0; i < MAX_ENTITIES; i++)
+    {
+        uint32_t needed = COMP_ALIVE | COMP_PROJECTILE;
+        if ((game.world.masks[i] & needed) != needed)
+        {
+            continue;
+        }
+        position_t p = game.world.positions[i];
+        if (p.x < min_x) min_x = p.x;
+        if (p.x > max_x) max_x = p.x;
+        if (p.y < min_y) min_y = p.y;
+        if (p.y > max_y) max_y = p.y;
+    }
+    CHECK(max_x - min_x > 20.0f);
+    CHECK(max_y - min_y > 20.0f);
+
+    // Shrapnel expires; the world ends up quiet.
+    for (int i = 0; i < projectile_def(PROJ_BURST_SHRAPNEL)->lifetime_ticks; i++)
+    {
+        game_tick(&game, &no_input);
+    }
+    CHECK(count_with(&game.world, COMP_PROJECTILE) == 0);
+}
+
+static void test_enemies_walk_toward_player(void)
+{
+    game_init(&game);
+    entity_t enemy = enemy_spawn(&game.world, ENEMY_WALKER, 400.0f, 0.0f);
+
+    for (int i = 0; i < 60; i++)
+    {
+        game_tick(&game, &no_input);
+    }
+
+    // One second at walker speed closes 100 units of the 400-unit gap.
+    CHECK_NEAR(game.world.positions[enemy.index].x,
+               400.0f - enemy_def(ENEMY_WALKER)->move_speed);
+    CHECK_NEAR(game.world.positions[enemy.index].y, 0.0f);
+}
+
 int main(void)
 {
     test_entity_create_and_alive();
@@ -367,6 +545,12 @@ int main(void)
     test_player_moves_and_stops();
     test_player_diagonal_not_faster();
     test_aim_is_stored();
+    test_projectile_damages_enemy();
+    test_enemy_dies_and_leaves_corpse();
+    test_fire_rate_is_cooldown_gated();
+    test_missed_projectile_expires_harmlessly();
+    test_projectile_explodes_into_children();
+    test_enemies_walk_toward_player();
 
     printf("%d checks, %d failed\n", checks_run, checks_failed);
     return checks_failed == 0 ? 0 : 1;

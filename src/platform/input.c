@@ -13,5 +13,7 @@ input_state_t input_read(Camera2D camera)
     input.aim_x = aim.x;
     input.aim_y = aim.y;
 
+    input.attack = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+
     return input;
 }
